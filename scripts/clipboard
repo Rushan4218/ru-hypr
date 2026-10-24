@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG="$HOME/.config/ru-hypr"
+
+entry="$(
+    cliphist list |
+    rofi -dmenu -i \
+        -p "Clipboard" \
+        -config "$CONFIG/rofi/clipboard.rasi"
+)" || exit 0
+
+[[ -n "$entry" ]] || exit 0
+printf '%s' "$entry" | cliphist decode | wl-copy

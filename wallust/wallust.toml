@@ -1,0 +1,25 @@
+palette = "saliencedark"
+backend = "resized"
+color_space = "lab"
+
+[templates]
+hyprland.template = "hyprland.conf"
+hyprland.target = "~/.config/ru-hypr/generated/colors.conf"
+
+waybar.template = "waybar-colors.css"
+waybar.target = "~/.config/ru-hypr/generated/waybar-colors.css"
+
+rofi.template = "rofi-colors.rasi"
+rofi.target = "~/.config/ru-hypr/generated/rofi-colors.rasi"
+
+dunst.template = "dunst-colors.conf"
+dunst.target = "~/.config/ru-hypr/generated/dunst-colors.conf"
+
+wlogout.template = "wlogout-colors.css"
+wlogout.target = "~/.config/ru-hypr/generated/wlogout-colors.css"
+
+swaync.template = "swaync-colors.css"
+swaync.target = "~/.config/ru-hypr/generated/swaync-colors.css"
+
+kitty.template = "kitty-colors.conf"
+kitty.target = "~/.config/ru-hypr/generated/kitty-colors.conf"

@@ -1,0 +1,134 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 48,
+  "spacing": 0,
+
+  "modules-left": ["cpu", "custom/gpu", "memory", "hyprland/workspaces"],
+
+  "modules-center": ["hyprland/window"],
+
+  "modules-right": [
+    "custom/wifi",
+    "custom/bluetooth",
+    "pulseaudio",
+    "backlight",
+    "battery",
+    "clock",
+    "custom/swaync",
+    "custom/power",
+  ],
+  "hyprland/workspaces": {
+    "format": "{id}",
+    "on-click": "activate",
+  },
+
+  "hyprland/window": {
+    "format": "{}",
+    "max-length": 50,
+    "separate-outputs": true,
+  },
+
+  "cpu": {
+    "interval": 2,
+    "format": "󰍛 CPU {usage}%",
+    "tooltip": true,
+  },
+
+  "custom/gpu": {
+    "exec": "~/.config/ru-hypr/scripts/gpu-usage",
+    "interval": 3,
+    "return-type": "text",
+    "tooltip": false,
+  },
+
+  "memory": {
+    "interval": 3,
+    "format": "󰘚 RAM {used:0.1f}G",
+    "tooltip": true,
+  },
+
+  "custom/wifi": {
+    "exec": "~/.config/ru-hypr/scripts/wifi-status",
+    "interval": 5,
+    "on-click": "kitty --class ru-wifi -e nmtui",
+    "tooltip": false,
+  },
+
+  "custom/bluetooth": {
+    "exec": "~/.config/ru-hypr/scripts/bluetooth-status",
+    "interval": 5,
+    "on-click": "kitty --class ru-bluetooth -e bluetoothctl",
+    "tooltip": false,
+  },
+  "pulseaudio": {
+    "format": "{icon}",
+    "format-muted": "󰖁",
+    "format-icons": {
+      "default": ["󰕿", "󰖀", "󰕾"],
+    },
+    "tooltip": true,
+    "tooltip-format": "Volume: {volume}%",
+    "on-click": "pavucontrol",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "on-scroll-up": "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+",
+    "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-",
+  },
+
+  "backlight": {
+    "device": "amdgpu_bl1",
+    "format": "{icon}",
+    "format-icons": ["󰃞", "󰃟", "󰃠"],
+    "tooltip": true,
+    "tooltip-format": "Brightness: {percent}%",
+    "on-scroll-up": "brightnessctl -d amdgpu_bl1 set +5%",
+    "on-scroll-down": "brightnessctl -d amdgpu_bl1 set 5%-",
+  },
+
+  "clock": {
+    "format": "󰥔 {:%a %d %b  %H:%M}",
+    "tooltip-format": "{:%A, %B %d, %Y}",
+    "interval": 60,
+  },
+
+  "battery": {
+    "bat": "BAT1",
+    "adapter": "ACAD",
+    "interval": 10,
+    "states": {
+      "warning": 30,
+      "critical": 15,
+    },
+    "format": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
+    "format-plugged": "󰚥 {capacity}%",
+    "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+    "tooltip": true,
+  },
+
+  "custom/swaync": {
+    "format": "{icon}",
+    "format-icons": {
+      "none": "󰂚",
+      "notification": "󱅫",
+      "dnd-none": "󰂛",
+      "dnd-notification": "󰂛",
+      "inhibited-none": "󰂚",
+      "inhibited-notification": "󱅫",
+      "dnd-inhibited-none": "󰂛",
+      "dnd-inhibited-notification": "󰂛",
+    },
+    "return-type": "json",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "tooltip": false,
+  },
+
+  "custom/power": {
+    "format": "󰐥",
+    "tooltip": true,
+    "tooltip-format": "Power menu",
+    "on-click": "wlogout --layout ~/.config/ru-hypr/wlogout/layout --css ~/.config/ru-hypr/wlogout/style.css",
+  },
+}

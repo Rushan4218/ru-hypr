@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+if [[ "$(nmcli -t -f WIFI general)" != "enabled" ]]; then
+    printf '󰤭'
+elif [[ "$(nmcli -t -f STATE general)" == *connected* ]]; then
+    printf '󰤨'
+else
+    printf '󰤯'
+fi

@@ -1,0 +1,14 @@
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCREENSHOT_DIR="$HOME/Pictures/Screenshots"
+mkdir -p "$SCREENSHOT_DIR"
+
+REGION="$(slurp)" || exit 0
+
+grim -g "$REGION" -t ppm - |
+    satty \
+        --filename - \
+        --output-filename "$SCREENSHOT_DIR/screenshot-%Y-%m-%d_%H-%M-%S.png" \
+        --copy-command wl-copy

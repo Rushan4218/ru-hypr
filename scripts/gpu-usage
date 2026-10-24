@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+usage=$(nvidia-smi --query-gpu=utilization.gpu \
+    --format=csv,noheader,nounits 2>/dev/null | head -n1)
+
+if [[ "$usage" =~ ^[0-9]+$ ]]; then
+    printf '󰢮 GPU %s%%\n' "$usage"
+else
+    printf '󰢮 GPU N/A\n'
+fi

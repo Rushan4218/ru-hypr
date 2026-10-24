@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG="$HOME/.config/ru-hypr"
+STATE="$CONFIG/current-wallpaper"
+
+# Start the wallpaper daemon if it isn't already running.
+if ! pgrep -x awww-daemon >/dev/null; then
+    awww-daemon > /tmp/ru-hypr-awww.log 2>&1 &
+fi
+
+# Wait for the daemon to respond.
+for _ in {1..50}; do
+    if awww query >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.2
+done
+
+if ! awww query >/dev/null 2>&1; then
+    echo "awww did not start; see /tmp/ru-hypr-awww.log" >&2
+    exit 1
+fi
+
+# Prefer the wallpaper actually restored by awww.
+WALLPAPER="$(
+    awww query |
+    sed -n 's/.*currently displaying: image: //p' |
+    head -n 1
+)"
+
+# Fall back to our saved selection if no wallpaper was restored.
+if [[ ! -f "$WALLPAPER" && -f "$STATE" ]]; then
+    WALLPAPER="$(cat "$STATE")"
+fi
+
+if [[ -f "$WALLPAPER" ]]; then
+    wallust run -d "$CONFIG/wallust" -s "$WALLPAPER"
+    printf '%s\n' "$WALLPAPER" > "$STATE"
+    hyprctl reload
+else
+    echo "No existing wallpaper found. Select one with scripts/set-wallpaper." >&2
+fi
+
+# Start the personal desktop services.
+
+swaync -c "$CONFIG/swaync/config.json" \
+       -s "$CONFIG/swaync/style.css" &
+
+waybar -c "$CONFIG/waybar/config.jsonc" \
+       -s "$CONFIG/waybar/style.css" &
+
+# Monitor clipboard history.
+if ! pgrep -x wl-paste >/dev/null; then
+    wl-paste --type text --watch cliphist store &
+    wl-paste --type image --watch cliphist store &
+fi

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! pgrep -x hyprlock >/dev/null; then
+    exec hyprlock -c "$HOME/.config/ru-hypr/hyprlock/hyprlock.conf"
+fi

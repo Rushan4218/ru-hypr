@@ -1,0 +1,83 @@
+@import "../generated/rofi-colors.rasi"
+
+configuration {
+    show-icons: true;
+    display-dmenu: "󰸉";
+}
+
+* {
+    font: "JetBrainsMono Nerd Font 10";
+    text-color: @foreground;
+    background-color: transparent;
+}
+
+window {
+    width: 780px;
+    height: 580px;
+    border: 2px;
+    border-color: @accent;
+    border-radius: 18px;
+    background-color: @background;
+    padding: 16px;
+}
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing: 14px;
+}
+
+inputbar {
+    background-color: @surface;
+    border: 1px;
+    border-color: @secondary;
+    border-radius: 12px;
+    padding: 10px 14px;
+    spacing: 10px;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    text-color: @accent;
+}
+
+entry {
+    placeholder: "Search wallpapers...";
+    placeholder-color: @muted;
+}
+
+listview {
+    columns: 3;
+    lines: 2;
+    flow: horizontal;
+    fixed-columns: true;
+    fixed-height: true;
+    spacing: 12px;
+    scrollbar: false;
+    cycle: true;
+}
+
+element {
+    orientation: vertical;
+    padding: 8px;
+    spacing: 6px;
+    border-radius: 12px;
+    border: 2px;
+    border-color: transparent;
+}
+
+element selected {
+    background-color: @secondary;
+    border-color: @accent;
+}
+
+element-icon {
+    size: 170px;
+    horizontal-align: 0.5;
+    border-radius: 8px;
+}
+
+element-text {
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+    text-color: inherit;
+}

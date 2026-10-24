@@ -1,2 +1,13 @@
+# Logs and backups
 *.log
 *.bak
+*~
+
+# Personal wallpaper state
+/current-wallpaper
+
+# Generated runtime colors and backgrounds
+/generated/*
+
+# Keep the generated directory in the repository
+!/generated/.gitkeep

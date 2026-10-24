@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG="$HOME/.config/ru-hypr"
+STATE="$CONFIG/current-wallpaper"
+WALLPAPER="${1:-}"
+
+if [[ -z "$WALLPAPER" || ! -f "$WALLPAPER" ]]; then
+    echo "Usage: set-wallpaper /path/to/image" >&2
+    exit 1
+fi
+
+WALLPAPER="$(realpath "$WALLPAPER")"
+
+# Generate the palette from the selected image.
+wallust run -d "$CONFIG/wallust" -s "$WALLPAPER"
+
+# Change wallpaper, then remember the selection.
+awww img \
+    --resize crop \
+    --transition-type fade \
+    --transition-duration 1.5 \
+    "$WALLPAPER"
+
+printf '%s\n' "$WALLPAPER" > "$STATE"
+
+# Generate Hyprlock background using the current wallpaper.
+cat > "$CONFIG/generated/hyprlock-background.conf" <<EOF
+background {
+    monitor =
+    path = $WALLPAPER
+    blur_passes = 0
+    brightness = 1.0
+    contrast = 1.0
+    noise = 0.0
+    vibrancy = 0.0
+}
+EOF
+
+# Apply the generated Hyprland colors.
+hyprctl reload
+pkill -SIGUSR2 -x waybar || true

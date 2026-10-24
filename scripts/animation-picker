@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG="$HOME/.config/ru-hypr"
+ACTIVE="$CONFIG/animations/active.conf"
+
+choice="$(
+    printf '%s\n' \
+        'End-4 Horizontal' \
+        'End-4 Vertical' \
+        'macOS-inspired' |
+    rofi -dmenu -i -p 'Animation style'
+)" || exit 0
+
+case "$choice" in
+    'End-4 Horizontal')
+        preset="end4-horizontal"
+        ;;
+    'End-4 Vertical')
+        preset="end4-vertical"
+        ;;
+    'macOS-inspired')
+        preset="macos"
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+tmp="$(mktemp "$CONFIG/animations/active.XXXXXX")"
+printf 'source = %s/animations/%s.conf\n' "$CONFIG" "$preset" > "$tmp"
+mv "$tmp" "$ACTIVE"
+
+if ! hyprctl reload; then
+    echo "Reload failed; restoring End-4 Horizontal." >&2
+    printf 'source = %s/animations/end4-horizontal.conf\n' "$CONFIG" > "$ACTIVE"
+    hyprctl reload
+    exit 1
+fi
+
+notify-send "ru-hypr" "Animation preset: $choice" 2>/dev/null || true

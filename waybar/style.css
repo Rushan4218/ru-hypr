@@ -1,0 +1,229 @@
+@import "../generated/waybar-colors.css";
+
+/* NOTE: requires "spacing": 0 in your waybar config.jsonc.
+   All gaps between modules are controlled by the margins below.
+   Vertical padding is 0 on every module; set the bar "height" in config.jsonc instead. */
+
+/* ── Global ─────────────────────────────────────────── */
+* {
+  font-family: "JetBrainsMono Nerd Font", monospace;
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 0;
+  border: none;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+window#waybar {
+  background: transparent;
+  color: @foreground;
+}
+
+/* ── Group 1: CPU + GPU + RAM ───────────────────────── */
+#cpu,
+#custom-gpu,
+#memory {
+  background: alpha(@surface, 0.88);
+  color: @foreground;
+  padding: 0 9px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  margin-left: 0;
+  margin-right: 0;
+  border-top: 1px solid alpha(@accent, 0.18);
+  border-bottom: 1px solid alpha(@accent, 0.18);
+  border-radius: 0;
+}
+
+#cpu {
+  margin-left: 14px;
+  padding-left: 16px;
+  border-left: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px 0 0 10px;
+}
+
+#custom-gpu {
+  padding-left: 9px;
+  padding-right: 9px;
+}
+
+#memory {
+  padding-right: 16px;
+  border-right: 1px solid alpha(@accent, 0.18);
+  border-radius: 0 10px 10px 0;
+  margin-right: 9px;
+}
+
+/* ── Group 2: Workspaces ────────────────────────────── */
+#workspaces {
+  background: alpha(@surface, 0.88);
+  color: @foreground;
+  padding: 0 7px;
+  margin: 5px 9px 5px 7px;
+  border: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px;
+}
+
+/* Normal state: same color as the other modules */
+#workspaces button {
+  background: transparent;
+  color: @foreground;
+  padding: 0 11px;
+  margin: 4px 2px;
+  border: none;
+  border-radius: 7px;
+}
+
+/* Active: different color */
+#workspaces button.active {
+  background: @secondary;
+  color: @background;
+  font-weight: 700;
+}
+
+/* Hover: different color */
+#workspaces button:hover {
+  background: alpha(@secondary, 0.22);
+  color: @accent;
+}
+
+#workspaces button.active:hover {
+  background: @secondary;
+  color: @background;
+}
+
+#workspaces button.urgent {
+  background: @muted;
+  color: @foreground;
+}
+
+/* ── Group 3: Active window ─────────────────────────── */
+#window {
+  background: alpha(@surface, 0.88);
+  color: @foreground;
+  padding: 0 22px;
+  margin: 5px 3px 5px 7px;
+  border: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px;
+}
+
+/* ── Group 4: Wi-Fi + Bluetooth + Volume + Brightness + Battery ──
+   One pill. Modules must be consecutive in this order in config.jsonc:
+   custom/wifi, custom/bluetooth, pulseaudio, backlight, battery */
+#custom-wifi,
+#custom-bluetooth,
+#pulseaudio,
+#backlight,
+#battery {
+  background: alpha(@surface, 0.88);
+  color: @foreground;
+  padding: 0 11px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  margin-left: 0;
+  margin-right: 0;
+  border-top: 1px solid alpha(@accent, 0.18);
+  border-bottom: 1px solid alpha(@accent, 0.18);
+  border-radius: 0;
+}
+
+/* First: Wi-Fi (rounded left end) */
+#custom-wifi {
+  margin-left: 7px;
+  padding-left: 16px;
+  border-left: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px 0 0 10px;
+}
+
+/* Volume + brightness keep the accent color */
+#pulseaudio,
+#backlight {
+  color: @accent;
+}
+
+#pulseaudio.muted {
+  color: @muted;
+}
+
+/* Last: Battery (rounded right end) */
+#battery {
+  padding-right: 16px;
+  border-right: 1px solid alpha(@accent, 0.18);
+  border-radius: 0 10px 10px 0;
+  margin-right: 9px;
+}
+
+#battery.warning {
+  color: @accent;
+}
+
+#battery.critical {
+  color: @muted;
+}
+
+#battery.charging {
+  color: @foreground;
+}
+
+/* ── Group 5: Clock ──────────────────────────────────── */
+#clock {
+  background: alpha(@surface, 0.88);
+  color: @foreground;
+  padding: 0 17px;
+  margin: 5px 9px 5px 7px;
+  border: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px;
+}
+
+/* ── Notifications (swaync) ──────────────────────────── */
+#custom-swaync {
+  background: alpha(@surface, 0.88);
+  color: @foreground;
+  padding: 0 14px;
+  margin: 5px 9px 5px 7px;
+  border: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px;
+}
+
+#custom-swaync.notification,
+#custom-swaync.dnd-notification {
+  color: @accent;
+}
+
+#custom-swaync.dnd-none,
+#custom-swaync.dnd-notification {
+  color: @muted;
+}
+
+/* ── Group 6: Power ──────────────────────────────────── */
+#custom-power {
+  background: alpha(@surface, 0.88);
+  color: @accent;
+  padding: 0 16px;
+  margin: 5px 14px 1px 7px;
+  border: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px;
+}
+
+/* ── System tray ─────────────────────────────────────── */
+#tray {
+  background: alpha(@surface, 0.88);
+  color: @foreground;
+  padding: 0 12px;
+  margin: 5px 3px 5px 7px;
+  border: 1px solid alpha(@accent, 0.18);
+  border-radius: 10px;
+}
+
+/* ── Tooltips ───────────────────────────────────────── */
+tooltip {
+  background: @background;
+  color: @foreground;
+  border: 1px solid @accent;
+  border-radius: 8px;
+}
+
+tooltip label {
+  padding: 3px;
+}
