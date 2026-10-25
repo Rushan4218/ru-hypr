@@ -40,6 +40,7 @@ make_thumb() {
     fi
     return 0
 }
+
 export -f make_thumb thumb_path
 export CACHE_DIR THUMB_SIZE
 
