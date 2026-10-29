@@ -9,7 +9,9 @@ choice="$(
         'End-4 Horizontal' \
         'End-4 Vertical' \
         'macOS-inspired' |
-    rofi -dmenu -i -p 'Animation style'
+    rofi -config "$HOME/.config/ru-hypr/rofi/theme.rasi" -dmenu -i -p 'Animation style' \
+        -theme-str 'entry { placeholder: "Search animations"; }' \
+        -theme-str 'element-icon { enabled: false; }'
 )" || exit 0
 
 case "$choice" in

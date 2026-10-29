@@ -40,3 +40,6 @@ EOF
 # Apply the generated Hyprland colors.
 hyprctl reload
 pkill -SIGUSR2 -x waybar || true
+
+pkill -x swayosd-server || true
+swayosd-server --config "$HOME/.config/ru-hypr/swayosd/config.toml" --style "$HOME/.config/ru-hypr/swayosd/style.css" &
