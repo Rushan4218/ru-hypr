@@ -5,30 +5,124 @@ CONFIG="$HOME/.config/ru-hypr"
 STATE="$CONFIG/current-wallpaper"
 WALLPAPER="${1:-}"
 
-if [[ -z "$WALLPAPER" || ! -f "$WALLPAPER" ]]; then
-    echo "Usage: set-wallpaper /path/to/image" >&2
+CACHE_DIR="$HOME/.cache/ru-hypr/wallpaper-thumbnails"
+FRAME_DIR="$HOME/.cache/ru-hypr/live-wallpaper-frames"
+
+notify() {
+    notify-send -a "Wallpaper Picker" "Wallpaper Picker" "$1" 2>/dev/null ||
+        echo "$1" >&2
+}
+
+usage() {
+    echo "Usage: set-wallpaper /path/to/wallpaper" >&2
     exit 1
-fi
+}
+
+[[ -n "$WALLPAPER" && -f "$WALLPAPER" ]] || usage
 
 WALLPAPER="$(realpath "$WALLPAPER")"
 
-# Generate the palette from the selected image.
-wallust run -d "$CONFIG/wallust" -s "$WALLPAPER"
+mkdir -p "$CACHE_DIR" "$FRAME_DIR" "$CONFIG/generated"
 
-# Change wallpaper, then remember the selection.
-awww img \
-    --resize crop \
-    --transition-type fade \
-    --transition-duration 1.5 \
-    "$WALLPAPER"
+EXT="${WALLPAPER##*.}"
+EXT="${EXT,,}"
 
+case "$EXT" in
+    jpg|jpeg|png|webp|avif|bmp|tif|tiff)
+        TYPE="static"
+        ;;
+    gif)
+        TYPE="live"
+        ;;
+    mp4|webm|mkv|mov|m4v|avi)
+        TYPE="live"
+        ;;
+    *)
+        notify "Unsupported wallpaper format: .$EXT"
+        exit 1
+        ;;
+esac
+
+# Select a still image for Wallust and Hyprlock.
+COLOR_SOURCE="$WALLPAPER"
+
+if [[ "$TYPE" == "live" ]]; then
+    HASH="$(printf '%s' "$WALLPAPER" | md5sum | cut -d' ' -f1)"
+    COLOR_SOURCE="$FRAME_DIR/$HASH.png"
+
+    if [[ "$EXT" == "gif" ]]; then
+        if ! magick "${WALLPAPER}[0]" \
+            -thumbnail '1920x1080>' \
+            "$COLOR_SOURCE.tmp.png"; then
+            rm -f "$COLOR_SOURCE.tmp.png"
+            notify "Could not extract a frame from the GIF"
+            exit 1
+        fi
+    else
+        # Try a frame at one second, then fall back to the first frame.
+        if ! ffmpeg -hide_banner -loglevel error \
+            -ss 1 -i "$WALLPAPER" -frames:v 1 \
+            -update 1 "$COLOR_SOURCE.tmp.png" -y </dev/null 2>/dev/null; then
+            rm -f "$COLOR_SOURCE.tmp.png"
+
+            if ! ffmpeg -hide_banner -loglevel error \
+                -i "$WALLPAPER" -frames:v 1 \
+                -update 1 "$COLOR_SOURCE.tmp.png" -y </dev/null 2>/dev/null; then
+                rm -f "$COLOR_SOURCE.tmp.png"
+                notify "Could not extract a frame from the video"
+                exit 1
+            fi
+        fi
+    fi
+
+    mv -f "$COLOR_SOURCE.tmp.png" "$COLOR_SOURCE"
+fi
+
+# Generate the palette from the selected image or extracted still frame.
+wallust run -d "$CONFIG/wallust" -s "$COLOR_SOURCE"
+
+# Stop any currently running live wallpaper player.
+pkill -x mpvpaper 2>/dev/null || true
+
+case "$TYPE" in
+    static)
+        # Clear the previous live/static layer before setting a static image.
+        awww clear 2>/dev/null || true
+
+        awww img \
+            --resize crop \
+            --transition-type fade \
+            --transition-duration 1.5 \
+            "$WALLPAPER"
+        ;;
+
+    live)
+        # Remove the previous awww wallpaper so it doesn't cover the video.
+        awww clear 2>/dev/null || true
+
+        # Apply the live wallpaper to all connected outputs.
+        mpvpaper -vs -a FULL \
+            -o "no-audio --loop-file=inf" \
+            ALL "$WALLPAPER" &
+
+        # Give the player a moment to start and catch immediate failures.
+        sleep 1
+
+        if ! pgrep -x mpvpaper >/dev/null; then
+            notify "mpvpaper failed to start"
+            exit 1
+        fi
+        ;;
+esac
+
+# Remember the original wallpaper path, not the extracted frame.
 printf '%s\n' "$WALLPAPER" > "$STATE"
 
-# Generate Hyprlock background using the current wallpaper.
+# Generate Hyprlock background from the still image.
 cat > "$CONFIG/generated/hyprlock-background.conf" <<EOF
 background {
     monitor =
-    path = $WALLPAPER
+    path = $COLOR_SOURCE
     blur_passes = 0
     brightness = 1.0
     contrast = 1.0
@@ -37,9 +131,12 @@ background {
 }
 EOF
 
-# Apply the generated Hyprland colors.
+# Apply generated Hyprland colors and refresh desktop components.
 hyprctl reload
 pkill -SIGUSR2 -x waybar || true
 
 pkill -x swayosd-server || true
-swayosd-server --config "$HOME/.config/ru-hypr/swayosd/config.toml" --style "$HOME/.config/ru-hypr/swayosd/style.css" &
+swayosd-server \
+    --config "$CONFIG/swayosd/config.toml" \
+    --style "$CONFIG/swayosd/style.css" &
+

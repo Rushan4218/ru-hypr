@@ -6,73 +6,157 @@ WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/Pictures/Wallpapers}"
 CACHE_DIR="$HOME/.cache/ru-hypr/wallpaper-thumbnails"
 THEME="$CONFIG/rofi/wallpaper-picker.rasi"
 SETTER="$CONFIG/scripts/set-wallpaper"
-THUMB_SIZE="320x180"
+
+THUMB_WIDTH=320
+THUMB_HEIGHT=180
+THUMB_SIZE="${THUMB_WIDTH}x${THUMB_HEIGHT}"
 
 notify() {
-    notify-send -a "Wallpaper Picker" "Wallpaper Picker" "$1" 2>/dev/null || echo "$1" >&2
+    notify-send -a "Wallpaper Picker" "Wallpaper Picker" "$1" 2>/dev/null ||
+        echo "$1" >&2
 }
 
-for cmd in rofi magick find md5sum xargs; do
-    command -v "$cmd" >/dev/null || { notify "Missing dependency: $cmd"; exit 1; }
+for cmd in rofi magick ffmpeg find md5sum xargs; do
+    command -v "$cmd" >/dev/null || {
+        notify "Missing dependency: $cmd"
+        exit 1
+    }
 done
 
-[[ -d "$WALLPAPER_DIR" ]] || { notify "Folder not found: $WALLPAPER_DIR"; exit 1; }
-[[ -x "$SETTER" ]]        || { notify "Setter script not executable: $SETTER"; exit 1; }
+[[ -d "$WALLPAPER_DIR" ]] || {
+    notify "Folder not found: $WALLPAPER_DIR"
+    exit 1
+}
+
+[[ -x "$SETTER" ]] || {
+    notify "Setter script not executable: $SETTER"
+    exit 1
+}
 
 mkdir -p "$CACHE_DIR"
 
-# Thumbnail name is a hash of the full path, so a.jpg / a.png or
-# files with the same name in different subfolders never collide.
+# Hash the full path to prevent thumbnail filename collisions.
 thumb_path() {
-    printf '%s/%s.png' "$CACHE_DIR" "$(printf '%s' "$1" | md5sum | cut -d' ' -f1)"
+    printf '%s/%s.png' "$CACHE_DIR" \
+        "$(printf '%s' "$1" | md5sum | cut -d' ' -f1)"
 }
 
 make_thumb() {
-    local file=$1 thumb
+    local file=$1 thumb ext
+
     thumb="$(thumb_path "$file")"
+    ext="${file##*.}"
+    ext="${ext,,}"
+
+    # Reuse cached thumbnails if the source hasn't changed.
     [[ -f "$thumb" && ! "$file" -nt "$thumb" ]] && return 0
-    # write to a temp file first so an interrupted run never leaves a broken thumbnail
-    if magick "${file}[0]" -thumbnail "${THUMB_SIZE}^" \
-        -gravity center -extent "$THUMB_SIZE" "${thumb}.tmp.png" 2>/dev/null; then
+
+    rm -f "${thumb}.tmp.png"
+
+    case "$ext" in
+        mp4|webm|mkv|mov|m4v|avi)
+            # Extract a frame at one second.
+            ffmpeg -hide_banner -loglevel error \
+                -ss 1 -i "$file" \
+                -frames:v 1 \
+                -vf "scale=${THUMB_WIDTH}:${THUMB_HEIGHT}:force_original_aspect_ratio=increase,crop=${THUMB_WIDTH}:${THUMB_HEIGHT}" \
+                -y "${thumb}.tmp.png" </dev/null 2>/dev/null ||
+            # Fall back to the first available frame.
+            ffmpeg -hide_banner -loglevel error \
+                -i "$file" \
+                -frames:v 1 \
+                -vf "scale=${THUMB_WIDTH}:${THUMB_HEIGHT}:force_original_aspect_ratio=increase,crop=${THUMB_WIDTH}:${THUMB_HEIGHT}" \
+                -y "${thumb}.tmp.png" </dev/null 2>/dev/null || true
+            ;;
+
+        gif)
+            # Use the first frame of the animated GIF.
+            magick "${file}[0]" \
+                -thumbnail "${THUMB_SIZE}^" \
+                -gravity center \
+                -extent "$THUMB_SIZE" \
+                "${thumb}.tmp.png" 2>/dev/null || true
+            ;;
+
+        *)
+            # Generate a thumbnail for a static image.
+            magick "$file" \
+                -thumbnail "${THUMB_SIZE}^" \
+                -gravity center \
+                -extent "$THUMB_SIZE" \
+                "${thumb}.tmp.png" 2>/dev/null || true
+            ;;
+    esac
+
+    if [[ -s "${thumb}.tmp.png" ]]; then
         mv -f "${thumb}.tmp.png" "$thumb"
     else
-        rm -f "${thumb}.tmp.png"
+        rm -f "${thumb}.tmp.png" "$thumb"
     fi
+
     return 0
 }
 
 export -f make_thumb thumb_path
-export CACHE_DIR THUMB_SIZE
+export CACHE_DIR THUMB_SIZE THUMB_WIDTH THUMB_HEIGHT
 
+# Find supported wallpapers and sort them consistently.
 mapfile -d '' -t files < <(
     find -L "$WALLPAPER_DIR" -type f \
         \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
-           -o -iname '*.webp' -o -iname '*.avif' \) -print0 | sort -z
+           -o -iname '*.webp' -o -iname '*.avif' \
+           -o -iname '*.gif' \
+           -o -iname '*.mp4' -o -iname '*.webm' \
+           -o -iname '*.mkv' -o -iname '*.mov' \
+           -o -iname '*.m4v' -o -iname '*.avi' \) \
+        -print0 | sort -z
 )
 
-((${#files[@]} > 0)) || { notify "No supported wallpapers found in $WALLPAPER_DIR"; exit 1; }
+((${#files[@]} > 0)) || {
+    notify "No supported wallpapers found in $WALLPAPER_DIR"
+    exit 1
+}
 
-# Generate missing thumbnails in parallel (first run is much faster)
+# Generate thumbnails in parallel.
 printf '%s\0' "${files[@]}" |
-    xargs -0 -n1 -P "$(nproc)" bash -c 'make_thumb "$1"' _
+    xargs -0 -r -n1 -P "$(nproc)" bash -c 'make_thumb "$1"' _
 
-# Keep only files that have a valid thumbnail
+# Keep only files with successfully generated thumbnails.
 valid=()
+
 for f in "${files[@]}"; do
     [[ -f "$(thumb_path "$f")" ]] && valid+=("$f")
 done
 
-((${#valid[@]} > 0)) || { notify "Could not generate any thumbnails"; exit 1; }
+((${#valid[@]} > 0)) || {
+    notify "Could not generate any thumbnails"
+    exit 1
+}
 
-# Stream entries straight into rofi (no $(...) capture of the list, so the \0 survives).
-# -format i returns the index, so names never need to be matched back to paths.
+# Display thumbnails in Rofi and return the selected index.
 idx="$(
     for f in "${valid[@]}"; do
         name="${f##*/}"
+        ext="${f##*.}"
+        ext="${ext,,}"
+
+        case "$ext" in
+            gif)
+                name="[GIF] $name"
+                ;;
+            mp4|webm|mkv|mov|m4v|avi)
+                name="[VIDEO] $name"
+                ;;
+        esac
+
         printf '%s\0icon\x1f%s\n' "$name" "$(thumb_path "$f")"
-    done | rofi -dmenu -i -show-icons -format i \
-            -p "Wallpapers" -theme "$THEME"
+    done |
+        rofi -dmenu -i -show-icons -format i \
+            -p "Wallpapers" \
+            -theme "$THEME"
 )" || exit 0
 
 [[ -n "$idx" ]] || exit 0
+
 exec "$SETTER" "${valid[$idx]}"
+

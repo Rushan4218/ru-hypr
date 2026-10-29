@@ -1,49 +1,105 @@
+
 #!/usr/bin/env bash
 set -euo pipefail
 
 CONFIG="$HOME/.config/ru-hypr"
 STATE="$CONFIG/current-wallpaper"
 
-# Start the wallpaper daemon if it isn't already running.
-if ! pgrep -x awww-daemon >/dev/null; then
-    awww-daemon > /tmp/ru-hypr-awww.log 2>&1 &
+# Restore the last selected wallpaper.
+WALLPAPER=""
+
+if [[ -f "$STATE" ]]; then
+    WALLPAPER="$(<"$STATE")"
 fi
 
-# Wait for the daemon to respond.
-for _ in {1..50}; do
-    if awww query >/dev/null 2>&1; then
-        break
+if [[ -n "$WALLPAPER" && -f "$WALLPAPER" ]]; then
+    WALLPAPER="$(realpath "$WALLPAPER")"
+    EXT="${WALLPAPER##*.}"
+    EXT="${EXT,,}"
+
+    case "$EXT" in
+        jpg|jpeg|png|webp|avif|bmp|tif|tiff)
+            # Start awww if needed.
+            if ! pgrep -x awww-daemon >/dev/null; then
+                awww-daemon > /tmp/ru-hypr-awww.log 2>&1 &
+            fi
+
+            # Wait for awww to become ready.
+            AWWW_READY=false
+            for _ in {1..50}; do
+                if awww query >/dev/null 2>&1; then
+                    AWWW_READY=true
+                    break
+                fi
+                sleep 0.2
+            done
+
+            if [[ "$AWWW_READY" == true ]]; then
+                awww img --resize crop \
+                    --transition-type fade \
+                    --transition-duration 1.5 \
+                    "$WALLPAPER"
+            else
+                echo "awww failed to start; see /tmp/ru-hypr-awww.log" >&2
+            fi
+            ;;
+
+        gif|mp4|webm|mkv|mov|m4v|avi)
+            # Restart the animated wallpaper.
+            pkill -x mpvpaper 2>/dev/null || true
+            awww clear 2>/dev/null || true
+
+            mpvpaper -vs -a FULL \
+                -o "no-audio --loop-file=inf" \
+                ALL "$WALLPAPER" &
+            ;;
+
+        *)
+            echo "Unsupported saved wallpaper format: .$EXT" >&2
+            WALLPAPER=""
+            ;;
+    esac
+
+    # Regenerate Wallust colors.
+    if [[ -n "$WALLPAPER" ]]; then
+        COLOR_SOURCE="$WALLPAPER"
+
+        case "$EXT" in
+            gif|mp4|webm|mkv|mov|m4v|avi)
+                FRAME_DIR="$HOME/.cache/ru-hypr/live-wallpaper-frames"
+                mkdir -p "$FRAME_DIR"
+
+                HASH="$(printf '%s' "$WALLPAPER" | md5sum | cut -d' ' -f1)"
+                COLOR_SOURCE="$FRAME_DIR/$HASH.png"
+
+                if [[ ! -s "$COLOR_SOURCE" ]]; then
+                    if [[ "$EXT" == gif ]]; then
+                        magick "${WALLPAPER}[0]" \
+                            -thumbnail '1920x1080>' "$COLOR_SOURCE"
+                    else
+                        ffmpeg -hide_banner -loglevel error \
+                            -ss 1 -i "$WALLPAPER" \
+                            -frames:v 1 -update 1 "$COLOR_SOURCE" -y \
+                            </dev/null 2>/dev/null ||
+                        ffmpeg -hide_banner -loglevel error \
+                            -i "$WALLPAPER" \
+                            -frames:v 1 -update 1 "$COLOR_SOURCE" -y \
+                            </dev/null 2>/dev/null
+                    fi
+                fi
+                ;;
+        esac
+
+        if [[ -s "$COLOR_SOURCE" ]]; then
+            wallust run -d "$CONFIG/wallust" -s "$COLOR_SOURCE"
+            hyprctl reload
+        fi
     fi
-    sleep 0.2
-done
-
-if ! awww query >/dev/null 2>&1; then
-    echo "awww did not start; see /tmp/ru-hypr-awww.log" >&2
-    exit 1
-fi
-
-# Prefer the wallpaper actually restored by awww.
-WALLPAPER="$(
-    awww query |
-    sed -n 's/.*currently displaying: image: //p' |
-    head -n 1
-)"
-
-# Fall back to our saved selection if no wallpaper was restored.
-if [[ ! -f "$WALLPAPER" && -f "$STATE" ]]; then
-    WALLPAPER="$(cat "$STATE")"
-fi
-
-if [[ -f "$WALLPAPER" ]]; then
-    wallust run -d "$CONFIG/wallust" -s "$WALLPAPER"
-    printf '%s\n' "$WALLPAPER" > "$STATE"
-    hyprctl reload
 else
-    echo "No existing wallpaper found. Select one with scripts/set-wallpaper." >&2
+    echo "No saved wallpaper found. Select one with scripts/set-wallpaper." >&2
 fi
 
-# Start the personal desktop services.
-
+# Start personal desktop services.
 swaync -c "$CONFIG/swaync/config.json" \
        -s "$CONFIG/swaync/style.css" &
 
@@ -55,3 +111,4 @@ if ! pgrep -x wl-paste >/dev/null; then
     wl-paste --type text --watch cliphist store &
     wl-paste --type image --watch cliphist store &
 fi
+

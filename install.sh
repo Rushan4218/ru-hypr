@@ -19,22 +19,28 @@ esac
 say "Detected distro family: $FAMILY"
 
 # ---------- Package lists ----------
-ARCH_PKGS=(git hyprland hypridle hyprlock hyprpicker waybar rofi kitty
-  swaync wlogout wallust awww jq cliphist wl-clipboard brightnessctl
+ARCH_PKGS=(git hyprland hyprland-guiutils xdg-desktop-portal-hyprland hypridle hyprlock hyprpicker waybar rofi kitty
+  swaync swayosd wlogout jq cliphist wl-clipboard brightnessctl
   wireplumber pavucontrol imagemagick networkmanager bluez bluez-utils
-  grim slurp satty)
+  grim slurp satty mpv mpvpaper ffmpeg
+  # needed to build wallust and awww
+  rust pkgconf wayland wayland-protocols lz4)
 
-FEDORA_PKGS=(git hyprland hypridle hyprlock hyprpicker waybar rofi kitty
-  SwayNotificationCenter wlogout wallust awww jq cliphist wl-clipboard
+FEDORA_PKGS=(git hyprland hyprland-guiutils xdg-desktop-portal-hyprland hypridle hyprlock hyprpicker waybar rofi kitty
+  SwayNotificationCenter swayosd wlogout jq cliphist wl-clipboard
   brightnessctl wireplumber pavucontrol ImageMagick NetworkManager
-  NetworkManager-tui bluez grim slurp satty)
+  NetworkManager-tui bluez grim slurp satty mpv mpvpaper ffmpeg
+  # needed to build wallust and awww
+  rustc cargo pkgconf-pkg-config wayland-devel wayland-protocols-devel lz4-devel)
 
-# Where to look when a package can't be installed automatically
+# Helpful guidance when a package cannot be installed automatically
 hint() {
     case "$1" in
-        awww)    echo "https://codeberg.org/LGFae/awww (AUR on Arch, or build with cargo)" ;;
-        wallust) echo "https://codeberg.org/explosion-mental/wallust (or: cargo install wallust)" ;;
-        *)       echo "search your distro's repos / the project page" ;;
+        mpvpaper) echo "https://github.com/GhostNaN/mpvpaper (AUR: mpvpaper, or build from source)" ;;
+        wallust)  echo "https://codeberg.org/explosion-mental/wallust (or: cargo install wallust)" ;;
+        awww)     echo "https://codeberg.org/LGFae/awww (or build with cargo)" ;;
+        swayosd)  echo "https://github.com/ErikReider/SwayOSD (AUR: swayosd-git / Copr)" ;;
+        *)        echo "check your distro's repositories or project page" ;;
     esac
 }
 
@@ -65,10 +71,43 @@ esac
 
 [ ${#PKGS[@]} -gt 0 ] && sudo -v
 
+# Fedora: Hyprland comes from a COPR repo
+if [ "$FAMILY" = fedora ]; then
+    say "Enabling Hyprland COPR (nett00n/hyprland)"
+    sudo dnf install -y dnf-plugins-core >/dev/null 2>&1
+    sudo dnf copr enable -y nett00n/hyprland \
+        || FAILED+=("COPR repo nett00n/hyprland (run: sudo dnf copr enable nett00n/hyprland)")
+fi
+
 for p in "${PKGS[@]}"; do
     say "Installing $p"
     install_pkg "$p" || FAILED+=("$p")
 done
+
+# ---------- Build wallust and awww with Rust (Arch and Fedora) ----------
+if [ "$FAMILY" != other ]; then
+    say "Building wallust and awww"
+    export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+    if command -v cargo >/dev/null; then
+        command -v wallust >/dev/null || cargo install wallust || FAILED+=("wallust")
+        if ! command -v awww >/dev/null; then
+            src="$(mktemp -d)"
+            if git clone --depth 1 https://codeberg.org/LGFae/awww.git "$src/awww" \
+               && (cd "$src/awww" && cargo build --release); then
+                mkdir -p "$HOME/.local/bin"
+                install -m755 "$src/awww/target/release/awww" \
+                              "$src/awww/target/release/awww-daemon" "$HOME/.local/bin/" \
+                    || FAILED+=("awww")
+            else
+                FAILED+=("awww")
+            fi
+            rm -rf "$src"
+        fi
+    else
+        FAILED+=("wallust" "awww")
+        echo "cargo is missing, so wallust and awww could not be built." >&2
+    fi
+fi
 
 # ---------- Clone or update the config ----------
 say "Fetching configuration"
@@ -102,19 +141,37 @@ ln -sfn "$DEST/hyprland.conf" "$TARGET"
 # ---------- Fonts ----------
 say "Installing fonts"
 mkdir -p "$FONT_DIR"
+
+# JetBrainsMono Nerd Font
 if ! fc-list 2>/dev/null | grep -qi "JetBrainsMono Nerd"; then
     if command -v curl >/dev/null && command -v unzip >/dev/null; then
         tmp=$(mktemp -d)
         curl -fsSL -o "$tmp/jb.zip" \
-          "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip" \
-          && unzip -qo "$tmp/jb.zip" -d "$FONT_DIR/JetBrainsMonoNF" \
-          || FAILED+=("JetBrainsMono Nerd Font")
+            "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip" \
+            && unzip -qo "$tmp/jb.zip" -d "$FONT_DIR/JetBrainsMonoNF" \
+            || FAILED+=("JetBrainsMono Nerd Font")
         rm -rf "$tmp"
     else
         FAILED+=("JetBrainsMono Nerd Font (needs curl and unzip)")
     fi
 fi
+
+# Material Symbols Rounded (variable font)
+if command -v curl >/dev/null; then
+    if ! fc-list 2>/dev/null | grep -qi "Material Symbols Rounded"; then
+        curl -fL \
+            "https://github.com/google/material-design-icons/raw/master/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf" \
+            -o "$FONT_DIR/MaterialSymbolsRounded.ttf" \
+            || FAILED+=("Material Symbols Rounded font")
+    fi
+else
+    FAILED+=("Material Symbols Rounded font (needs curl)")
+fi
+
+# Copy any additional bundled fonts
 [ -d "$DEST/fonts" ] && cp -r "$DEST/fonts/." "$FONT_DIR/"
+
+# Refresh font cache
 fc-cache -f
 
 # ---------- Summary ----------

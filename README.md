@@ -8,9 +8,10 @@ A personal, modular [Hyprland](https://hyprland.org/) configuration targeting **
 
 - **One-Script Installation** — Automated setup script (`install.sh`) supporting **Arch Linux** and **Fedora**
 - **Modular Hyprland Configuration** — Clean separation of concerns (monitors, keybinds, inputs, layout, autostart)
-- **Dynamic Theming with Wallust** — Coordinated color palettes derived automatically from your active wallpaper
+- **Live & Static Wallpaper Engine** — Full support for static images (`.png`, `.jpg`, `.webp`, `.avif`, etc.) via `awww` and animated/video wallpapers (`.mp4`, `.webm`, `.mkv`, `.mov`, `.gif`, etc.) via `mpvpaper` and `ffmpeg`
+- **Dynamic Theming with Wallust** — Coordinated color palettes derived automatically from static wallpapers or auto-extracted still frames from live wallpapers
 - **Full UI Integration** — Matched themes for Waybar, Rofi, SwayNC, SwayOSD, Wlogout, Kitty, and Hyprlock
-- **Wallpaper & Animation Pickers** — Easy graphical selectors for wallpapers (`SUPER + W`) and animation presets (`SUPER + SHIFT + W`)
+- **Wallpaper & Animation Pickers** — Graphical selectors for wallpapers (`SUPER + W`) with video thumbnails and animation presets (`SUPER + SHIFT + W`)
 - **On-Screen Display (OSD)** — Smooth volume and brightness indicators using **SwayOSD**
 - **Battery Monitoring** — Background daemon notifying on low and critical battery levels
 - **Screenshots & Annotations** — Quick fullscreen and interactive region capture with **grim**, **slurp**, and **satty**
@@ -70,12 +71,13 @@ chmod +x install.sh
 
 #### What `install.sh` does:
 1. **Detects Distro**: Recognizes whether you are running **Arch Linux** or **Fedora**.
-2. **Installs Packages**: Uses `pacman` (with `paru`/`yay` fallback) on Arch or `dnf` on Fedora to install all required dependencies.
-3. **Clones or Updates Config**: Ensures the configuration is cloned to `~/.config/ru-hypr` (or updates existing checkout).
-4. **Links Configuration**: Safely backs up any existing `~/.config/hypr/hyprland.conf` and symlinks `~/.config/ru-hypr/hyprland.conf` into place.
-5. **Installs Fonts**: Automatically downloads and installs **JetBrainsMono Nerd Font** into `~/.local/share/fonts` and refreshes the font cache.
-6. **Makes Scripts Executable**: Grants execution permissions to all helper scripts in `scripts/`.
-7. **Reports Missing Packages**: Informs you if any distro-specific packages (such as `awww` or `wallust`) require manual or AUR/Cargo installation.
+2. **Installs Packages**: Uses `pacman` (with `paru`/`yay` fallback) on Arch or `dnf` on Fedora to install all required compositor, UI, multimedia (`mpv`, `mpvpaper`, `ffmpeg`), and system utilities.
+3. **Builds Wallust & awww**: Automatically compiles and installs `wallust` and `awww` using Cargo if not already installed.
+4. **Clones or Updates Config**: Ensures the configuration is cloned to `~/.config/ru-hypr` (or updates existing checkout).
+5. **Links Configuration**: Safely backs up any existing `~/.config/hypr/hyprland.conf` and symlinks `~/.config/ru-hypr/hyprland.conf` into place.
+6. **Installs Fonts**: Automatically downloads and installs **JetBrainsMono Nerd Font** and **Material Symbols Rounded** into `~/.local/share/fonts` and refreshes the font cache.
+7. **Makes Scripts Executable**: Grants execution permissions to all helper scripts in `scripts/`.
+8. **Reports Missing Packages**: Informs you with actionable hints if any distro-specific packages require manual intervention.
 
 ---
 
@@ -88,28 +90,30 @@ If you prefer installing dependencies and setting up symlinks manually, follow t
 ##### On Arch Linux:
 ```bash
 sudo pacman -S --needed \
-  git hyprland hypridle hyprlock hyprpicker \
-  waybar rofi kitty swaync wlogout \
-  wallust awww jq cliphist wl-clipboard \
-  brightnessctl wireplumber pavucontrol \
+  git hyprland hyprland-guiutils xdg-desktop-portal-hyprland \
+  hypridle hyprlock hyprpicker waybar rofi kitty swaync swayosd wlogout \
+  jq cliphist wl-clipboard brightnessctl wireplumber pavucontrol \
   imagemagick networkmanager bluez bluez-utils \
-  grim slurp satty
+  grim slurp satty mpv ffmpeg
 ```
 
-> **Note**: If `awww` or `wallust` are not in the main Arch repositories on your system, install them from the AUR using an AUR helper (e.g. `yay -S awww wallust` or `paru -S awww wallust`). For SwayOSD, install `swayosd-git` from the AUR if desired.
+> **Note**: `mpvpaper` is available in the AUR (`yay -S mpvpaper` or `paru -S mpvpaper`). `wallust` and `awww` can be installed via AUR or with Cargo (`cargo install wallust` and compiling `awww` from source). `swayosd` is available in Arch's `extra` repository.
 
 ##### On Fedora:
 ```bash
+# Enable Hyprland COPR repository
+sudo dnf copr enable -y nett00n/hyprland
+
 sudo dnf install -y \
-  git hyprland hypridle hyprlock hyprpicker \
-  waybar rofi kitty SwayNotificationCenter wlogout \
-  wallust awww jq cliphist wl-clipboard \
-  brightnessctl wireplumber pavucontrol \
-  ImageMagick NetworkManager NetworkManager-tui bluez \
-  grim slurp satty
+  git hyprland hyprland-guiutils xdg-desktop-portal-hyprland \
+  hypridle hyprlock hyprpicker waybar rofi kitty \
+  SwayNotificationCenter swayosd wlogout jq cliphist wl-clipboard \
+  brightnessctl wireplumber pavucontrol ImageMagick \
+  NetworkManager NetworkManager-tui bluez grim slurp satty \
+  mpv mpvpaper ffmpeg
 ```
 
-> **Note**: On Fedora, `wallust`, `awww`, and `swayosd` may need to be installed via Copr or Cargo (`cargo install wallust` / build `awww` from source / `swayosd` via Copr).
+> **Note**: `wallust` and `awww` can be installed using Rust/Cargo (`cargo install wallust`, and building `awww` from https://codeberg.org/LGFae/awww).
 
 Enable system services if you use them:
 ```bash
@@ -133,12 +137,19 @@ ln -sfn ~/.config/ru-hypr/hyprland.conf ~/.config/hypr/hyprland.conf
 ```
 
 #### 4. Install Fonts
-Ensure **JetBrainsMono Nerd Font** is installed on your system:
+Ensure **JetBrainsMono Nerd Font** and **Material Symbols Rounded** are installed:
 ```bash
 mkdir -p ~/.local/share/fonts
+
+# JetBrainsMono Nerd Font
 curl -fsSL -o /tmp/jb.zip "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
 unzip -qo /tmp/jb.zip -d ~/.local/share/fonts/JetBrainsMonoNF
 rm /tmp/jb.zip
+
+# Material Symbols Rounded
+curl -fL "https://github.com/google/material-design-icons/raw/master/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf" \
+  -o ~/.local/share/fonts/MaterialSymbolsRounded.ttf
+
 fc-cache -f
 ```
 
@@ -153,13 +164,14 @@ chmod +x ~/.config/ru-hypr/scripts/*
 
 | Category | Packages / Tools |
 | :--- | :--- |
-| **Compositor & Session** | `hyprland`, `hypridle`, `hyprlock`, `hyprpicker`, `swayosd` |
-| **Status, App Launcher & UI** | `waybar`, `rofi`, `kitty`, `swaync` (Fedora: `SwayNotificationCenter`), `wlogout` |
-| **Theming & Wallpaper** | `wallust`, `awww`, `imagemagick` (Fedora: `ImageMagick`) |
+| **Compositor & Session** | `hyprland`, `hyprland-guiutils`, `xdg-desktop-portal-hyprland`, `hypridle`, `hyprlock`, `hyprpicker`, `swayosd` |
+| **Status, Launcher & UI** | `waybar`, `rofi`, `kitty`, `swaync` (Fedora: `SwayNotificationCenter`), `wlogout` |
+| **Static & Live Wallpaper** | `awww` (static transitions), `mpvpaper` & `mpv` (live video/GIF), `ffmpeg` (video frame extraction) |
+| **Color Generation & Images** | `wallust` (palette generation), `imagemagick` (Fedora: `ImageMagick`) |
 | **Media, Audio & Brightness** | `wireplumber` (`wpctl`), `pavucontrol`, `brightnessctl` |
 | **Screenshots & Clipboard** | `grim`, `slurp`, `satty`, `cliphist`, `wl-clipboard` |
 | **System & Networking** | `networkmanager` (`NetworkManager-tui`), `bluez`, `bluez-utils`, `jq`, `git` |
-| **Typography** | `JetBrainsMono Nerd Font` |
+| **Typography** | `JetBrainsMono Nerd Font`, `Material Symbols Rounded` |
 
 ---
 
@@ -170,9 +182,15 @@ The default wallpaper directory is:
 ~/Pictures/Wallpapers
 ```
 
+### Supported Formats
+- **Static Images**: `.jpg`, `.jpeg`, `.png`, `.webp`, `.avif`, `.bmp`, `.tif`, `.tiff`
+- **Live / Video Wallpapers**: `.mp4`, `.webm`, `.mkv`, `.mov`, `.m4v`, `.avi`, `.gif`
+
 ### Set a Wallpaper Directly
 ```bash
-~/.config/ru-hypr/scripts/set-wallpaper /absolute/path/to/image.jpg
+~/.config/ru-hypr/scripts/set-wallpaper /absolute/path/to/wallpaper.mp4
+# or for static image:
+~/.config/ru-hypr/scripts/set-wallpaper /absolute/path/to/wallpaper.jpg
 ```
 
 ### Open the Graphical Wallpaper Picker
@@ -180,6 +198,7 @@ Press `SUPER + W` or run:
 ```bash
 ~/.config/ru-hypr/scripts/wallpaper-picker
 ```
+The picker generates cached thumbnails in parallel using `ffmpeg` and ImageMagick, tagging video items with `[VIDEO]` and GIFs with `[GIF]` so you can easily browse your collection in Rofi.
 
 ### Custom Wallpaper Directory
 You can override the wallpaper directory by passing `WALLPAPER_DIR`:
@@ -187,65 +206,82 @@ You can override the wallpaper directory by passing `WALLPAPER_DIR`:
 WALLPAPER_DIR=/path/to/wallpapers ~/.config/ru-hypr/scripts/wallpaper-picker
 ```
 
-### What Happens Automatically
-When a wallpaper is selected, `set-wallpaper` triggers:
-1. Smooth desktop background transition via `awww`
-2. Color palette generation with **Wallust** based on wallpaper hues
-3. Dynamic CSS / config injection for Waybar, SwayNC, SwayOSD, Wlogout, Rofi, and Kitty
-4. Generation of a blurred lockscreen background for **Hyprlock**
-5. Live reload of Hyprland, Waybar, and SwayNC so color changes appear immediately without restarting your session
+### How Live and Static Wallpapers Work:
+When a wallpaper is selected (or restored on boot via `scripts/start-session`):
+1. **Background Rendering**:
+   - **Static Wallpapers**: Set using `awww` with a smooth cross-fade animation.
+   - **Live Wallpapers**: Played continuously across all connected monitors using `mpvpaper` (`--loop-file=inf`, muted audio).
+2. **Still Frame & Palette Generation**:
+   - For video and GIF wallpapers, `ffmpeg` (or `magick`) extracts a reference frame into `~/.cache/ru-hypr/live-wallpaper-frames/`.
+   - **Wallust** runs on this representative still frame to generate dynamic, harmonized color schemes.
+3. **Desktop Theme Synchronization**:
+   - Injects the generated color palette into Waybar, SwayNC, SwayOSD, Wlogout, Rofi, and Kitty.
+   - Live-reloads Hyprland, Waybar, and SwayOSD so colors update instantaneously without ending your session.
+4. **Lock Screen Integration**:
+   - Generates a matching static lock screen background for **Hyprlock**, ensuring fast and secure locking even when running video wallpapers.
 
 ---
 
-## Keybindings
+## Keybindings Reference
 
-> `SUPER` is mapped to the **Windows / Command key**.
+All keybindings are configured in [`config/keybinds.conf`](file:///home/ross/.config/ru-hypr/config/keybinds.conf).
 
-### Applications & Menus
-| Keybind | Action |
-| :--- | :--- |
-| `SUPER + Q` | Launch Kitty terminal |
-| `SUPER + R` | Open Rofi application launcher |
-| `SUPER + E` | Open Thunar file manager |
-| `SUPER + Escape` | Open Wlogout power menu |
-| `SUPER + SHIFT + R` | Reload Hyprland configuration |
+> **Modifier Key**: `SUPER` refers to the **Windows / Super / Command** key.
 
-### Window Management
-| Keybind | Action |
-| :--- | :--- |
-| `SUPER + C` | Close focused window |
-| `SUPER + F` | Toggle fullscreen |
-| `SUPER + P` | Toggle floating mode |
-| `SUPER + H / J / K / L` | Move focus Left / Down / Up / Right (Vim-style) |
-| `SUPER + Left Mouse Drag` | Move floating window |
-| `SUPER + Right Mouse Drag` | Resize floating window |
+### Application Shortcuts
+| Keybind | Command / Script | Description |
+| :--- | :--- | :--- |
+| `SUPER + Q` | `kitty` | Launch Kitty terminal emulator |
+| `SUPER + R` | `rofi -show drun` | Open Rofi application launcher |
+| `SUPER + E` | `thunar` | Open Thunar file manager |
+| `SUPER + Escape` | `wlogout` | Open Wlogout lock / reboot / shutdown menu |
+| `SUPER + SHIFT + R` | `hyprctl reload` | Reload Hyprland configuration live |
 
-### Workspaces
-| Keybind | Action |
-| :--- | :--- |
-| `SUPER + 1` .. `0` | Switch to workspace 1–10 (mapped per active monitor) |
-| `SUPER + SHIFT + 1` .. `0` | Move active window to workspace 1–10 |
-| `SUPER + Scroll Down / Up` | Switch to next / previous workspace |
+### Window Management & Focus
+| Keybind | Action | Description |
+| :--- | :--- | :--- |
+| `SUPER + C` | `killactive` | Close the currently focused window |
+| `SUPER + F` | `fullscreen` | Toggle fullscreen mode for the active window |
+| `SUPER + P` | `togglefloating` | Toggle floating / tiling mode for the active window |
+| `SUPER + H` | `movefocus, l` | Move focus to the window on the **left** (Vim-style) |
+| `SUPER + J` | `movefocus, d` | Move focus to the window **down** (Vim-style) |
+| `SUPER + K` | `movefocus, u` | Move focus to the window **up** (Vim-style) |
+| `SUPER + L` | `movefocus, r` | Move focus to the window on the **right** (Vim-style) |
+| `SUPER + Left Click Drag` | `movewindow` | Move a floating window by dragging |
+| `SUPER + Right Click Drag` | `resizewindow` | Resize a floating window by dragging |
 
-### Media & Brightness (SwayOSD)
-| Keybind | Action |
-| :--- | :--- |
-| `XF86AudioRaiseVolume` | Increase volume (with OSD popup) |
-| `XF86AudioLowerVolume` | Decrease volume (with OSD popup) |
-| `XF86AudioMute` | Toggle audio mute |
-| `XF86AudioMicMute` | Toggle microphone mute |
-| `XF86MonBrightnessUp` | Increase display brightness (with OSD popup) |
-| `XF86MonBrightnessDown` | Decrease display brightness (with OSD popup) |
+### Workspaces & Monitor-Aware Switching
+This configuration uses a monitor-aware switching script (`scripts/workspace-switch.sh`) so each monitor maintains its own set of workspaces without overlap:
+- **Internal display (`eDP-1`)**: uses Workspaces **1 – 10**
+- **External monitor (`HDMI-A-1`)**: uses Workspaces **11 – 20**
 
-### Utilities & Tools
-| Keybind | Action |
-| :--- | :--- |
-| `SUPER + W` | Open wallpaper picker |
-| `SUPER + SHIFT + W` | Open animation preset picker (End-4 Horizontal / Vertical / macOS) |
-| `SUPER + V` | Open clipboard manager picker (`cliphist` + Rofi) |
-| `SUPER + SHIFT + C` | Pick color from screen to clipboard (`hyprpicker`) |
-| `PRINT` | Take fullscreen screenshot |
-| `SUPER + PRINT` | Interactive region screenshot with annotation editor (`slurp` + `satty`) |
+| Keybind | Action | Description |
+| :--- | :--- | :--- |
+| `SUPER + 1` .. `9`, `0` | Switch workspace | Switch to workspace 1–10 on `eDP-1` or 11–20 on `HDMI-A-1` |
+| `SUPER + SHIFT + 1` .. `9`, `0` | Move window | Move focused window to workspace 1–10 (or 11–20 on external display) |
+| `SUPER + Scroll Up` | `workspace, e-1` | Cycle to the previous active workspace |
+| `SUPER + Scroll Down` | `workspace, e+1` | Cycle to the next active workspace |
+
+### Audio & Display Brightness (SwayOSD)
+Hardware media keys display a modern on-screen overlay via SwayOSD:
+| Keybind | Command | Description |
+| :--- | :--- | :--- |
+| `XF86AudioRaiseVolume` | `swayosd-client --output-volume raise` | Raise volume (+OSD popup) |
+| `XF86AudioLowerVolume` | `swayosd-client --output-volume lower` | Lower volume (+OSD popup) |
+| `XF86AudioMute` | `swayosd-client --output-volume mute-toggle` | Toggle audio mute (+OSD popup) |
+| `XF86AudioMicMute` | `swayosd-client --input-volume mute-toggle` | Toggle microphone mute (+OSD popup) |
+| `XF86MonBrightnessUp` | `swayosd-client --brightness raise` | Increase screen brightness (+OSD popup) |
+| `XF86MonBrightnessDown` | `swayosd-client --brightness lower` | Decrease screen brightness (+OSD popup) |
+
+### Tools & Utilities
+| Keybind | Tool / Script | Description |
+| :--- | :--- | :--- |
+| `SUPER + W` | `scripts/wallpaper-picker` | Open Rofi visual wallpaper picker & regenerates colors |
+| `SUPER + SHIFT + W` | `scripts/animation-picker` | Open animation preset picker (End-4 Horizontal / Vertical / macOS) |
+| `SUPER + V` | `scripts/clipboard` | Open clipboard history manager (`cliphist` + Rofi) |
+| `SUPER + SHIFT + C` | `hyprpicker -a` | Eyedropper color picker (copies HEX code to clipboard) |
+| `PRINT` | `scripts/screenshot-full` | Take a full-screen screenshot (`~/Pictures/Screenshots`) |
+| `SUPER + PRINT` | `scripts/screenshot-region` | Interactive area capture with **Satty** annotation editor |
 
 ---
 
@@ -320,6 +356,14 @@ Ensure `wallust`, `awww`, and `imagemagick` are installed and reachable in your 
 ```bash
 ~/.config/ru-hypr/scripts/set-wallpaper /path/to/your/image.jpg
 ```
+
+### Live wallpaper is not playing or video fails to display
+Ensure `mpvpaper`, `mpv`, and `ffmpeg` are installed:
+```bash
+which mpvpaper mpv ffmpeg
+```
+- **Arch Linux**: `sudo pacman -S mpv ffmpeg` and install `mpvpaper` via AUR (`yay -S mpvpaper` or `paru -S mpvpaper`).
+- **Fedora**: `sudo dnf install mpv mpvpaper ffmpeg`.
 
 ---
 
