@@ -1,0 +1,49 @@
+@import url("file:///home/ross/.config/ru-hypr/generated/swayosd-colors.css");
+
+window#osd {
+    border-radius: 10px;
+    border: 1px solid @osd_accent;
+    background: alpha(@osd_bg, 0.95);
+}
+
+window#osd #container {
+    margin: 4px;
+    padding: 4px;
+    background: transparent;
+}
+
+window#osd image {
+    -gtk-icon-transform: scale(0.7);
+}
+
+window#osd image,
+window#osd label {
+    color: @osd_fg;
+    font-weight: 400;
+}
+
+window#osd progressbar:disabled,
+window#osd image:disabled {
+    opacity: 0.2;
+}
+
+window#osd progressbar {
+    min-height: 4px;
+    border-radius: 999px;
+    background: transparent;
+    border: none;
+}
+
+window#osd trough {
+    min-height: inherit;
+    border-radius: inherit;
+    border: none;
+    background: alpha(@osd_accent, 0.25);
+}
+
+window#osd progress {
+    min-height: inherit;
+    border-radius: inherit;
+    border: none;
+    background: @osd_accent;
+}

@@ -1,0 +1,4 @@
+[server]
+show_percentage = true
+style = "/home/ross/.config/ru-hypr/swayosd/style.css"
+top_margin = 0.96

@@ -23,3 +23,6 @@ swaync.target = "~/.config/ru-hypr/generated/swaync-colors.css"
 
 kitty.template = "kitty-colors.conf"
 kitty.target = "~/.config/ru-hypr/generated/kitty-colors.conf"
+
+swayosd_colors.template = "swayosd-colors.css"
+swayosd_colors.target = "~/.config/ru-hypr/generated/swayosd-colors.css"
