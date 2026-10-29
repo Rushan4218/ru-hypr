@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG="$HOME/.config/ru-hypr"
+CONFIG="$HOME/.config/ru-hypr"        # real path, for file operations
+CONFIG_TILDE='~/.config/ru-hypr'      # literal ~, for text written into active.conf
 ACTIVE="$CONFIG/animations/active.conf"
 
 choice="$(
@@ -9,7 +10,7 @@ choice="$(
         'End-4 Horizontal' \
         'End-4 Vertical' \
         'macOS-inspired' |
-    rofi -config "$HOME/.config/ru-hypr/rofi/theme.rasi" -dmenu -i -p 'Animation style' \
+    rofi -config "$CONFIG/rofi/theme.rasi" -dmenu -i -p 'Animation style' \
         -theme-str 'entry { placeholder: "Search animations"; }' \
         -theme-str 'element-icon { enabled: false; }'
 )" || exit 0
@@ -30,14 +31,14 @@ case "$choice" in
 esac
 
 tmp="$(mktemp "$CONFIG/animations/active.XXXXXX")"
-printf 'source = %s/animations/%s.conf\n' "$CONFIG" "$preset" > "$tmp"
+printf 'source = %s/animations/%s.conf\n' "$CONFIG_TILDE" "$preset" > "$tmp"
 mv "$tmp" "$ACTIVE"
 
 if ! hyprctl reload; then
     echo "Reload failed; restoring End-4 Horizontal." >&2
-    printf 'source = %s/animations/end4-horizontal.conf\n' "$CONFIG" > "$ACTIVE"
+    printf 'source = %s/animations/end4-horizontal.conf\n' "$CONFIG_TILDE" > "$ACTIVE"
     hyprctl reload
     exit 1
 fi
 
-notify-send "ru-hypr" "Animation preset: $choice" 2>/dev/null || true
+notify-send -a "ru-hypr" "ru-hypr" "Animation preset: $choice" 2>/dev/null || true
