@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# battery-notify.sh - send a desktop notification when the battery runs low.
+# Reads /sys/class/power_supply and uses notify-send, so it works on any distro.
+#
+# Config (override with environment variables):
+#   LOW_LEVEL       percent for a normal warning       (default 20)
+#   CRITICAL_LEVEL  percent for a critical warning     (default 10)
+#   INTERVAL        seconds between checks             (default 60)
+
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
+LOW_LEVEL="${LOW_LEVEL:-20}"
+CRITICAL_LEVEL="${CRITICAL_LEVEL:-10}"
+INTERVAL="${INTERVAL:-60}"
+
+# Find the first battery (BAT0, BAT1, ...)
+BAT=""
+for b in /sys/class/power_supply/BAT*; do
+    [ -d "$b" ] && BAT="$b" && break
+done
+
+if [ -z "$BAT" ]; then
+    echo "No battery found in /sys/class/power_supply" >&2
+    exit 1
+fi
+
+if ! command -v notify-send >/dev/null 2>&1; then
+    echo "notify-send not found. Install libnotify:" >&2
+    echo "  Arch:          sudo pacman -S libnotify" >&2
+    echo "  Fedora:        sudo dnf install libnotify" >&2
+    echo "  Debian/Ubuntu: sudo apt install libnotify-bin" >&2
+    echo "  openSUSE:      sudo zypper install libnotify-tools" >&2
+    exit 1
+fi
+
+last_state=""   # "", "low" or "critical" - prevents repeated notifications
+
+while true; do
+    capacity=$(cat "$BAT/capacity" 2>/dev/null)
+    status=$(cat "$BAT/status" 2>/dev/null)
+
+    if [ "$status" = "Discharging" ] && [ -n "$capacity" ]; then
+        if [ "$capacity" -le "$CRITICAL_LEVEL" ]; then
+            if [ "$last_state" != "critical" ]; then
+                notify-send -a "Battery" \
+                    -h string:x-canonical-private-synchronous:battery \
+                    -u critical \
+                    "Battery critically low" \
+                    "Only ${capacity}% left. Plug in the charger now!"
+                last_state="critical"
+            fi
+        elif [ "$capacity" -le "$LOW_LEVEL" ]; then
+            if [ "$last_state" = "" ]; then
+                notify-send -a "Battery" \
+                    -h string:x-canonical-private-synchronous:battery \
+                    -u normal \
+                    "Battery low" \
+                    "${capacity}% remaining. Consider plugging in."
+                last_state="low"
+            fi
+        else
+            last_state=""
+        fi
+    else
+        # Charging, full, or unknown: reset so we warn again next discharge
+        last_state=""
+    fi
+
+    sleep "$INTERVAL"
+done
