@@ -113,10 +113,10 @@ Some applications or services may be optional depending on which features you us
 
 ### 1. Clone the repository
 
-Clone the repository into `~/ru-hypr`:
+Clone the repository into `~/.config/ru-hypr`:
 
 ```bash
-git clone https://github.com/Rushan4218/ru-hypr.git ~/ru-hypr
+git clone https://github.com/Rushan4218/ru-hypr.git ~/.config/ru-hypr
 ```
 
 ### 2. Back up your existing Hyprland configuration
